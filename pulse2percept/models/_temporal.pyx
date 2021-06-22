@@ -1,5 +1,5 @@
-from ..utils._fast_math cimport c_fmax, c_expit
-from libc.math cimport pow as c_pow, fabs as c_abs, sqrt as c_sqrt
+from libc.math cimport(pow as c_pow, exp as c_exp, fabs as c_abs,
+                       sqrt as c_sqrt)
 from cython.parallel import prange
 from cython import cdivision  # modulo, division by zero
 import numpy as np
@@ -11,17 +11,13 @@ ctypedef cnp.uint32_t uint32
 
 
 @cdivision(True)
-cpdef temporal_fast(const float32[:, ::1] stim,
-                    const float32[::1] t_stim,
-                    const uint32[::1] idx_t_percept,
-                    float32 dt,
-                    float32 tau1,
-                    float32 tau2,
-                    float32 tau3,
-                    float32 eps,
-                    float32 beta,
-                    float32 thresh_percept):
-    """Cython implementation of the Horsager 2009 temporal model
+cpdef fading_fast(const float32[:, ::1] stim,
+                  const float32[::1] t_stim,
+                  const uint32[::1] idx_t_percept,
+                  float32 dt,
+                  float32 tau,
+                  float32 thresh_percept):
+    """Cython implementation of the generic fading model
 
     Parameters
     ----------
@@ -33,16 +29,8 @@ cpdef temporal_fast(const float32[:, ::1] stim,
         The time points for ``stim`` above.
     dt : float32
         Sampling time step (ms)
-    tau1: float32
+    tau: float32
         Time decay constant for the fast leaky integrater (ms).
-    tau2: float32
-        Time decay constant for the charge accumulation (ms).
-    tau3: float32
-        Time decay constant for the slow leaky integrator (ms).
-    eps: float32
-        Scaling factor applied to charge accumulation.
-    beta: float32
-        Power nonlinearity (exponent of the half-wave rectification).
     thresh_percept : float32
         Spatial responses smaller than ``thresh_percept`` will be set to zero
 
@@ -53,15 +41,10 @@ cpdef temporal_fast(const float32[:, ::1] stim,
 
     """
     cdef:
-        float32 ca, r1, r2, r3, r4a, r4b, r4c
-        float32 t_sim, amp
+        float32 t_sim, amp, bright
         float32[:, ::1] percept
         int32 idx_space, idx_sim, idx_stim, idx_frame
         int32 n_space, n_stim, n_percept, n_sim
-
-    # Note that eps must be divided by 1000, because the original model was fit
-    # with a microsecond time step and now we are running milliseconds:
-    eps = eps / 1000.0
 
     n_percept = len(idx_t_percept)  # Py overhead
     n_stim = len(t_stim)  # Py overhead
@@ -71,16 +54,7 @@ cpdef temporal_fast(const float32[:, ::1] stim,
     percept = np.zeros((n_space, n_percept), dtype=np.float32)  # Py overhead
 
     for idx_space in prange(n_space, schedule='static', nogil=True):
-        # Because the stationary nonlinearity depends on `max_R3`, which is the
-        # largest value of R3 over all time points, we have to process the
-        # stimulus in two steps.
-        # Step 1: Calculate `r3` for all time points and extract `max_r3`:
-        ca = 0.0
-        r1 = 0.0
-        r2 = 0.0
-        r4a = 0.0
-        r4b = 0.0
-        r4c = 0.0
+        bright = 0.0
         idx_stim = 0
         idx_frame = 0
         for idx_sim in range(n_sim):
@@ -94,27 +68,18 @@ cpdef temporal_fast(const float32[:, ::1] stim,
                 if t_sim >= t_stim[idx_stim + 1]:
                     idx_stim = idx_stim + 1
             amp = stim[idx_space, idx_stim]
-            # Fast ganglion cell response. Note the negative sign before `amp`,
-            # which is required to reproduce e.g. Fig.3 in the paper,
-            # indicating that the model was trained on what we know call
-            # "anodic" current:
-            r1 = r1 + dt * (-amp - r1) / tau1  # += in threads is a reduction
-            # Charge accumulation:
-            ca = ca + dt * c_fmax(amp, 0)
-            r2 = r2 + dt * (ca - r2) / tau2
-            # Half-rectification and power nonlinearity:
-            r3 = c_pow(c_fmax(r1 - eps * r2, 0), beta)
-            # Slow response (3-stage leaky integrator):
-            r4a = r4a + dt * (r3 - r4a) / tau3
-            r4b = r4b + dt * (r4a - r4b) / tau3
-            r4c = r4c + dt * (r4b - r4c) / tau3
+            # Invert stimulus polarity and apply leaky integrator:
+            bright = bright + dt * (-amp - bright) / tau
+            # Brightness is bounded in [0, \inf[
+            if bright < 0.0:
+                bright = 0.0
             if idx_sim == idx_t_percept[idx_frame]:
                 # `idx_t_percept` stores the time points at which we need to
                 # output a percept. We compare `idx_sim` to `idx_t_percept`
                 # rather than `t_sim` to `t_percept` because there is no good
                 # (fast) way to compare two floating point numbers:
-                if c_abs(r4c) >= thresh_percept:
-                    percept[idx_space, idx_frame] = r4c
+                if c_abs(bright) >= thresh_percept:
+                    percept[idx_space, idx_frame] = bright
                 idx_frame = idx_frame + 1
 
     return np.asarray(percept)  # Py overhead

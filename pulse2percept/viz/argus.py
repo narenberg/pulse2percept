@@ -11,7 +11,9 @@ from matplotlib import patches
 from pkg_resources import resource_filename
 
 from ..implants import ArgusI, ArgusII
+from ..models import AxonMapModel
 from ..utils import Watson2014Transform, scale_image, center_image
+from ..utils.constants import ZORDER
 
 PATH_ARGUS1 = resource_filename('pulse2percept', 'viz/data/argus1.png')
 PATH_ARGUS2 = resource_filename('pulse2percept', 'viz/data/argus2.png')
@@ -77,6 +79,8 @@ def plot_argus_phosphenes(data, argus, scale=1.0, axon_map=None,
         Either an Argus I or Argus II implant
     scale : float
         Scaling factor to apply to the phosphenes
+    axon_map : :py:class:`~pulse2percept.models.AxonMapModel`
+        An instance of the axon map model to use for visualization.
     show_fovea : bool
         Whether to indicate the location of the fovea with a square
     ax : axis
@@ -96,6 +100,9 @@ def plot_argus_phosphenes(data, argus, scale=1.0, axon_map=None,
     if not isinstance(argus, (ArgusI, ArgusII)):
         raise TypeError('"argus" must be an Argus I or Argus II implant, not '
                         '%s.' % type(argus))
+    if axon_map is not None and not isinstance(axon_map, AxonMapModel):
+        raise TypeError('"axon_map" must be an AxonMapModel instance, not '
+                        '%s.' % type(axon_map))
     if ax is None:
         ax = plt.gca()
     alpha_bg = 0.5  # alpha value for the array in the background
@@ -116,8 +123,8 @@ def plot_argus_phosphenes(data, argus, scale=1.0, axon_map=None,
 
     # Add some padding to the output image so the array is not cut off:
     pad = 2000  # microns
-    x_el = [e.x for e in argus.values()]
-    y_el = [e.y for e in argus.values()]
+    x_el = [e.x for e in argus.electrode_objects]
+    y_el = [e.y for e in argus.electrode_objects]
     x_min = Watson2014Transform.ret2dva(np.min(x_el) - pad)
     x_max = Watson2014Transform.ret2dva(np.max(x_el) + pad)
     y_min = Watson2014Transform.ret2dva(np.min(y_el) - pad)
@@ -136,7 +143,7 @@ def plot_argus_phosphenes(data, argus, scale=1.0, axon_map=None,
             out_shape = data.image.values[0].shape
         except IndexError:
             out_shape = (768, 1024)
-    for xy, e in zip(px_argus, argus.values()):
+    for xy, e in zip(px_argus, argus.electrode_objects):
         x_dva, y_dva = Watson2014Transform.ret2dva([e.x, e.y])
         x_out = (x_dva - x_min) / (x_max - x_min) * (out_shape[1] - 1)
         y_out = (y_dva - y_min) / (y_max - y_min) * (out_shape[0] - 1)
@@ -181,11 +188,12 @@ def plot_argus_phosphenes(data, argus, scale=1.0, axon_map=None,
         img_arr[rr, cc, channel] = all_imgs[rr, cc]
     img_arr[rr, cc, 3] = 1
 
-    ax.imshow(img_arr, cmap='gray', zorder=1)
+    ax.imshow(img_arr, cmap='gray', zorder=ZORDER['background'])
 
     if show_fovea:
         fovea = dva2out([0, 0])[0]
-        ax.scatter(*fovea, s=100, marker='s', c='w', edgecolors='k', zorder=99)
+        ax.scatter(*fovea, s=100, marker='s', c='w', edgecolors='k',
+                   zorder=ZORDER['foreground'])
 
     if axon_map is not None:
         axon_bundles = axon_map.grow_axon_bundles(n_bundles=100, prune=False)
@@ -193,14 +201,14 @@ def plot_argus_phosphenes(data, argus, scale=1.0, axon_map=None,
         for bundle in axon_bundles:
             # Flip y upside down for dva:
             bundle = Watson2014Transform.ret2dva(bundle) * [1, -1]
-            # Trim segments outside the drawing window:
-            idx = np.logical_and(np.logical_and(bundle[:, 0] >= x_min,
-                                                bundle[:, 0] <= x_max),
-                                 np.logical_and(bundle[:, 1] >= y_min,
-                                                bundle[:, 1] <= y_max))
+            # Set segments outside the drawing window to NaN:
+            x_idx = np.logical_or(bundle[:, 0] < x_min, bundle[:, 0] > x_max)
+            bundle[x_idx, 0] = np.nan
+            y_idx = np.logical_or(bundle[:, 1] < y_min, bundle[:, 1] > y_max)
+            bundle[y_idx, 1] = np.nan
             bundle = dva2out(bundle)
-            ax.plot(bundle[idx, 0], bundle[idx, 1], c=(0.6, 0.6, 0.6),
-                    linewidth=2, zorder=1)
+            ax.plot(bundle[:, 0], bundle[:, 1], c=(0.6, 0.6, 0.6),
+                    linewidth=2, zorder=ZORDER['background'])
 
     return ax
 
@@ -220,6 +228,8 @@ def plot_argus_simulated_phosphenes(percepts, argus, scale=1.0, axon_map=None,
         Either an Argus I or Argus II implant
     scale : float
         Scaling factor to apply to the phosphenes
+    axon_map : :py:class:`~pulse2percept.models.AxonMapModel`
+        An instance of the axon map model to use for visualization.
     show_fovea : bool
         Whether to indicate the location of the fovea with a square
     ax : axis
@@ -235,7 +245,7 @@ def plot_argus_simulated_phosphenes(percepts, argus, scale=1.0, axon_map=None,
     for p, s in zip(percepts, stim.data.T):
         df.append({
             'subject': 'S000',
-            'electrode': stim.electrodes[np.asarray(s, dtype=np.bool)][0],
+            'electrode': stim.electrodes[np.asarray(s, dtype=bool)][0],
             'image': p,
             'xrange': (percepts.xdva.min(), percepts.xdva.max()),
             'yrange': (percepts.ydva.min(), percepts.ydva.max())

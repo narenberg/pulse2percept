@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 
 from .base import PrettyPrint
+from .constants import ZORDER
 
 
 class Grid2D(PrettyPrint):
@@ -125,7 +126,7 @@ class Grid2D(PrettyPrint):
     def reset(self):
         self._iter = 0
 
-    def plot(self, transform=None, autoscale=True, zorder=1, ax=None):
+    def plot(self, transform=None, autoscale=True, zorder=None, ax=None):
         """Plot the extension of the grid
 
         Parameters
@@ -146,6 +147,8 @@ class Grid2D(PrettyPrint):
         ax.set_aspect('equal')
         if autoscale:
             ax.autoscale(True)
+        if zorder is None:
+            zorder = ZORDER['background']
 
         x, y = self.x, self.y
         if transform is not None:
@@ -165,7 +168,7 @@ class Grid2D(PrettyPrint):
                 border += list(array[::-1, 0])
                 xy.append(border)
             # Draw border:
-            ax.add_patch(Polygon(np.array(xy).T, alpha=0.5, ec='k', fc='gray',
+            ax.add_patch(Polygon(np.array(xy).T, alpha=0.3, ec='k', fc='gray',
                                  ls='--', zorder=zorder))
             # This is needed in MPL 3.0.X to set the axis limit correctly:
             ax.autoscale_view()
@@ -245,8 +248,8 @@ class Watson2014Transform(RetinalCoordTransform):
     def dva2ret(r_deg):
         """Converts visual angles (deg) into retinal distances (um)
 
-        This function converts degrees of visual angle into a retinal distance from
-        the optic axis (um) using Eq. A5 in [Watson2014]_.
+        This function converts degrees of visual angle into a retinal distance 
+        from the optic axis (um) using Eq. A5 in [Watson2014]_.
 
         Parameters
         ----------
@@ -361,6 +364,7 @@ def pol2cart(theta, rho):
     y = rho * np.sin(theta)
     return x, y
 
+
 def delta_angle(source_angle, target_angle, hi=2 * np.pi):
     """Returns the signed difference between two angles (rad)
 
@@ -383,5 +387,5 @@ def delta_angle(source_angle, target_angle, hi=2 * np.pi):
 
     """
     diff = target_angle - source_angle
-    mod = lambda a, n: (a % n + n) % n
+    def mod(a, n): return (a % n + n) % n
     return mod(diff + hi / 2, hi) - hi / 2

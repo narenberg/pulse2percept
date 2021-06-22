@@ -9,8 +9,37 @@ Release Notes
     **pulse2percept 0.6 was the last version to support Python <= 3.5.**
     pulse2percept 0.7+ requires Python 3.6+.
 
-v0.7.0 (2021, planned)
-----------------------
+v0.7.1 (2021-06-21)
+-------------------
+
+New features
+~~~~~~~~~~~~
+
+*  Add :py:class:`~pulse2percept.models.FadingTemporal`, a generic phosphene fading model (:pull:`378`)
+
+Maintenance
+~~~~~~~~~~~
+
+*  Various implant usability and speed upgrades (:pull:`375`, :pull:`382`, :pull:`383`, :pull:`386`)
+*  Various stimulus usability and speed upgrades (:pull:`382`, :pull:`383`, :pull:`384`, :pull:`385`)
+*  Refactor common Cython functions and move them into a ``utils._fast_math`` submodule (:pull:`382`)
+*  Further speed up the :py:class:`~pulse2percept.models.AxonMapModel` build process (:pull:`369`)
+*  Improve documentation and usability of various :py:class:`~pulse2percept.models.AxonMapModel` methods (:pull:`370`)
+*  Disallow lambda<10 for :py:class:`~pulse2percept.models.AxonMapModel` (:pull:`370`)
+*  Show a warning when :py:class:`~pulse2percept.models.ScoreboardModel` or
+   :py:class:`~pulse2percept.models.AxonMapModel` is used with a nonzero electrode-retina distance (:pull:`368`)
+
+Bug fixes
+~~~~~~~~~
+
+*  Fix naming convention for :py:class:`~pulse2percept.implants.BVT24` electrodes (:pull:`380`)
+*  Fix issues with plotting and animating :py:class:`~pulse2percept.percepts.Percept` (:pull:`379`)
+*  Fix inconsistencies and missing parameters in the [Nanduri2012]_ dataset (:pull:`376`)
+*  Fix :py:meth:`pulse2percept.models.AxonMapModel.plot` for left eyes (:pull:`367`)
+*  Fix axon map visualization in :py:meth:`~pulse2percept.viz.plot_argus_phosphenes` (:pull:`366`)
+
+v0.7.0 (2021-04-04)
+-------------------
 
 Highlights
 ~~~~~~~~~~
@@ -68,7 +97,7 @@ Backward-incompatible changes
 Deprecations
 ^^^^^^^^^^^^
 
-*  ``plot_axon_map``: Use :py:meth`pulse2percept.models.AxonMapModel.plot`
+*  ``plot_axon_map``: Use :py:meth:`pulse2percept.models.AxonMapModel.plot`
 *  ``plot_implant_on_axon_map``: Use
    :py:meth:`pulse2percept.implants.ProsthesisSystem.plot` on top of
    :py:meth`pulse2percept.models.AxonMapModel.plot`
