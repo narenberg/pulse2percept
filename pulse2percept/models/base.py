@@ -918,7 +918,7 @@ class Model(PrettyPrint):
             Will return None if ``implant.stim`` is None.
         """
         if not self.is_built:
-            raise NotBuiltError("Yout must call ``build`` first.")
+            raise NotBuiltError("You must call ``build`` first.")
         if not isinstance(implant, ProsthesisSystem):
             raise TypeError(f"'implant' must be a ProsthesisSystem object, not "
                             f"{type(implant)}.")
