@@ -291,6 +291,10 @@ class ElectrodeGrid(ElectrodeArray):
     etype : :py:class:`~pulse2percept.implants.Electrode`, optional
         A valid Electrode class. By default,
         :py:class:`~pulse2percept.implants.PointSource` is used.
+    gauss_distort : (mean, std_dev)
+        Parameters for the gaussian noise that will be added to electrode placements
+        to simulate natural variability of phosphene locatioons in the brain.
+        The default value (0, 0) will result in no distortion being applied.
     **kwargs :
         Any additional arguments that should be passed to the
         :py:class:`~pulse2percept.implants.Electrode` constructor, such as
@@ -355,10 +359,10 @@ class ElectrodeGrid(ElectrodeArray):
 
     """
     # Frozen class: User cannot add more class attributes
-    __slots__ = ('shape', 'type', 'spacing', 'rot')
+    __slots__ = ('shape', 'type', 'spacing', 'rot', 'gauss_distort')
 
     def __init__(self, shape, spacing, x=0, y=0, z=0, rot=0, names=('A', '1'),
-                 type='rect', orientation='horizontal', etype=PointSource,
+                 type='rect', orientation='horizontal', etype=PointSource, gauss_distort=(0,0),
                  **kwargs):
         if not isinstance(names, (tuple, list, np.ndarray)):
             raise TypeError("'names' must be a tuple/list of (rows, cols)")
@@ -391,14 +395,21 @@ class ElectrodeGrid(ElectrodeArray):
                 raise ValueError(f"'names' must either have two entries for "
                                  f"rows/columns or {np.prod(shape)} entries, not "
                                  f"{len(names)}")
+        if not isinstance(gauss_distort, tuple):
+            raise TypeError(f"'gauss_distort must be a tuple with the form (mean, std_dev), "
+                            f"not {gauss_distort}")
+        else:
+            if len(gauss_distort) != 2:
+                raise ValueError(f"gauss_distort must have exatly 2 values, not {len(gauss_distort)}")
         self.shape = shape
         self.type = type
         self.spacing = spacing
         self.rot = rot
+        self.gauss_distort = gauss_distort
         # Instantiate empty collection of electrodes. This dictionary will be
         # populated in a private method ``_set_egrid``:
         self._electrodes = OrderedDict()
-        self._make_grid(x, y, z, rot, names, orientation, etype, **kwargs)
+        self._make_grid(x, y, z, rot, names, orientation, etype, gauss_distort, **kwargs)
 
     def _pprint_params(self):
         """Return dict of class attributes to pretty-print"""
@@ -445,7 +456,7 @@ class ElectrodeGrid(ElectrodeArray):
                     # Index not found:
                     return None
 
-    def _make_grid(self, x, y, z, rot, names, orientation, etype, **kwargs):
+    def _make_grid(self, x, y, z, rot, names, orientation, etype, gauss_distort, **kwargs):
         """Private method to build the electrode grid"""
         n_elecs = np.prod(self.shape)
         rows, cols = self.shape
@@ -520,6 +531,9 @@ class ElectrodeGrid(ElectrodeArray):
         x_arr = (np.arange(cols) * x_spc - 0.5 * (cols - 1) * x_spc)
         y_arr = (np.arange(rows) * y_spc - 0.5 * (rows - 1) * y_spc)
         x_arr, y_arr = np.meshgrid(x_arr, y_arr, sparse=False)
+        if gauss_distort != (0,0):
+            x_arr = x_arr + np.random.normal(gauss_distort[0], gauss_distort[1], x_arr.shape)
+            y_arr = y_arr + np.random.normal(gauss_distort[0], gauss_distort[1], y_arr.shape)
         if self.type.lower() == 'hex':
             if orientation.lower() == 'horizontal':
                 # Shift every other row:
