@@ -21,7 +21,7 @@ from .base import ProsthesisSystem
 from .electrodes import (Electrode, PointSource, DiskElectrode,
                          SquareElectrode, HexElectrode)
 from .electrode_arrays import ElectrodeArray, ElectrodeGrid
-from .argus import ArgusI, ArgusII
+from .argus import ArgusI, ArgusII, DistortedArgusII
 from .alpha import AlphaIMS, AlphaAMS
 from .bvt import BVT24, BVT44
 from .prima import PhotovoltaicPixel, PRIMA, PRIMA75, PRIMA55, PRIMA40
@@ -33,6 +33,7 @@ __all__ = [
     'ArgusII',
     'BVT24',
     'DiskElectrode',
+    'DistortedArgusII',
     'Electrode',
     'ElectrodeArray',
     'ElectrodeGrid',
