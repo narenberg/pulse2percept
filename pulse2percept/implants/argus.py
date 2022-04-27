@@ -1,4 +1,4 @@
-"""`ArgusI`, `ArgusII`"""
+"""`ArgusI`, `ArgusII`, `DistortedArgusII`"""
 import numpy as np
 from collections import OrderedDict
 
@@ -277,3 +277,44 @@ class ArgusII(ProsthesisSystem):
         params.update({'shape': self.shape, 'safe_mode': self.safe_mode,
                        'preprocess': self.preprocess})
         return params
+
+class DistortedArgusII(ArgusII):
+    def __init__(self, distort_mean, distort_std_dev, x=0, y=0, z=0, rot=0,
+                 eye='RE', stim=None, preprocess=True, safe_mode=False,
+                 use_legacy_names=False):
+        self.safe_mode = safe_mode
+        self.preprocess = preprocess
+        self.shape = (6, 10)
+        r = 225.0 / 2.0
+        spacing = 575.0
+        names = ('A', '1')
+        self.earray = ElectrodeGrid(self.shape, spacing, x=x, y=y, z=z, r=r,
+                                    rot=rot, names=names, etype=DiskElectrode,
+                                    gauss_distort=(distort_mean, distort_std_dev))
+
+        # Beware of race condition: Stim must be set last, because it requires
+        # indexing into self.electrodes:
+        self.stim = stim
+
+        # Set left/right eye:
+        if not isinstance(eye, str):
+            raise TypeError("'eye' must be a string, either 'LE' or 'RE'.")
+        if eye != 'LE' and eye != 'RE':
+            raise ValueError("'eye' must be either 'LE' or 'RE'.")
+        self.eye = eye
+        # Unfortunately, in the left eye the labeling of columns is reversed...
+        if eye == 'LE':
+            # TODO: Would be better to have more flexibility in the naming
+            # convention. This is a quick-and-dirty fix:
+            names = self.earray.electrode_names
+            objects = self.earray.electrode_objects
+            names = np.array(names).reshape(self.earray.shape)
+            # Reverse column names:
+            for row in range(self.earray.shape[0]):
+                names[row] = names[row][::-1]
+            # Build a new ordered dict:
+            electrodes = OrderedDict()
+            for name, obj in zip(names.ravel(), objects):
+                electrodes.update({name: obj})
+            # Assign the new ordered dict to earray:
+            self.earray._electrodes = electrodes
