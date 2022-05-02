@@ -8,6 +8,7 @@ from skimage.transform import SimilarityTransform
 from .electrodes import Electrode, PointSource, DiskElectrode
 from ..utils import PrettyPrint, bijective26_name
 from ..utils.constants import ZORDER
+from ..utils.stats import get_truncated_normal
 
 
 class ElectrodeArray(PrettyPrint):
@@ -532,8 +533,10 @@ class ElectrodeGrid(ElectrodeArray):
         y_arr = (np.arange(rows) * y_spc - 0.5 * (rows - 1) * y_spc)
         x_arr, y_arr = np.meshgrid(x_arr, y_arr, sparse=False)
         if gauss_distort != (0,0):
-            x_arr = x_arr + np.random.normal(gauss_distort[0], gauss_distort[1], x_arr.shape)
-            y_arr = y_arr + np.random.normal(gauss_distort[0], gauss_distort[1], y_arr.shape)
+            rng = get_truncated_normal(mean=gauss_distort[0], sd=gauss_distort[1],
+                                       low=gauss_distort[0]-x_spc/2, upp=gauss_distort[0]+x_spc/2)
+            x_arr = x_arr + np.rint(rng.rvs(x_arr.size).reshape(x_arr.shape))
+            y_arr = y_arr + np.rint(rng.rvs(y_arr.size).reshape(y_arr.shape))
         if self.type.lower() == 'hex':
             if orientation.lower() == 'horizontal':
                 # Shift every other row:
