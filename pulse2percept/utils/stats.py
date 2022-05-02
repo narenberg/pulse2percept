@@ -1,7 +1,7 @@
 """`r2_score`, `circ_r2_score`"""
 import numpy as np
 from math import isclose
-from scipy.stats import circvar
+from scipy.stats import circvar, truncnorm
 from .geometry import delta_angle
 
 
@@ -111,3 +111,7 @@ def circ_r2_score(y_true, y_pred):
     if isclose(ss_tot, 0.0, abs_tol=1e-9):
         return 0.0  # zero variance in the ground-truth data
     return 1 - ss_res / ss_tot
+
+# From https://stackoverflow.com/a/44308018
+def get_truncated_normal(mean=0, sd=1, low=0, upp=10):
+    return truncnorm((low - mean) / sd, (upp - mean) / sd, loc=mean, scale=sd)
