@@ -24,7 +24,7 @@ from .array import is_strictly_increasing, radial_mask, sample, unique
 from .images import center_image, scale_image, shift_image, trim_image
 from .convolution import center_vector, conv
 from .optimize import bisect
-from .stats import r2_score, circ_r2_score
+from .stats import r2_score, circ_r2_score, get_truncated_normal
 from .parallel import parfor
 from .deprecation import deprecated
 
@@ -44,6 +44,7 @@ __all__ = [
     'FreezeError',
     'Frozen',
     'gamma',
+    'get_truncatd_normal',
     'Grid2D',
     'is_strictly_increasing',
     'parfor',
